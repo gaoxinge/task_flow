@@ -8,6 +8,10 @@
 
 ### pip
 
+```shell
+pip install git+https://github.com/gaoxinge/task_flow
+```
+
 ## example
 
 ### show task graph
