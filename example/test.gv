@@ -1,0 +1,14 @@
+digraph test {
+	int1 -> add
+	int1 -> minus
+	int1 -> multiply
+	int1 -> divide
+	int2 -> add
+	int2 -> minus
+	int2 -> multiply
+	int2 -> divide
+	add -> print
+	minus -> print
+	multiply -> print
+	divide -> print
+}
