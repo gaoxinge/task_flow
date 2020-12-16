@@ -9,7 +9,7 @@ setup(
     author="gaoxinge",
     version="0.0.1",
     description="task_flow",
-    url="",
+    url="https://github.com/gaoxinge/task_flow",
     packages=find_packages(),
     install_requires=install_requires,
     extras_require={},
