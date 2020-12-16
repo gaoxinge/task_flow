@@ -2,9 +2,15 @@
 
 ## install
 
+### graphviz
+
+- [graphviz](https://graphviz.org/)
+
+### pip
+
 ## example
 
-### 1
+### show task graph
 
 ```python
 from task_flow import Graph, Task
@@ -21,7 +27,7 @@ with Graph("test") as graph:
     graph.show("test.gv")
 ```
 
-### 2
+### run task graph by simple executor
 
 ```python
 from task_flow import Graph, Task, SimpleExecutor
@@ -38,3 +44,5 @@ with SimpleExecutor() as executor:
         _print = Task("print", lambda x, y, z, w: print(x, y, z, w), _add, _minus, _multiply, _divide)
         executor.run(graph)
 ```
+
+### run task graph by thread executor
