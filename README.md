@@ -29,8 +29,8 @@ from task_flow import Graph, Task, SimpleExecutor
 
 with SimpleExecutor() as executor:
     with Graph("test") as graph:
-        _int1 = Task("int_1", lambda: 1)
-        _int2 = Task("int_2", lambda: 2)
+        _int1 = Task("int1", lambda: 1)
+        _int2 = Task("int2", lambda: 2)
         _add = Task("add", lambda x, y: x + y, _int1, _int2)
         _minus = Task("minus", lambda x, y: x - y, _int1, _int2)
         _multiply = Task("multiply", lambda x, y: x * y, _int1, _int2)
