@@ -89,6 +89,6 @@ with ProcessExecutor(num=3) as executor:
 
 ## benchmark
 
-||simple_executor|thread_executor_3|thread_executor_4|process_executor_3|process_executor_4|
+||simple|thread 3|thread 4|process 3|process 4|
 |-|-|-|-|-|-|
-|time|21.006s|12.007s|9.007s|12.332s|9.354s|
+|seconds|21|12|9|12|9|
