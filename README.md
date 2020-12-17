@@ -86,3 +86,9 @@ with ProcessExecutor(num=3) as executor:
         _print = Task("print", print, _add, _minus, _multiply, _divide)
         executor.run(graph)
 ```
+
+## benchmark
+
+||simple_executor|thread_executor_3|thread_executor_4|process_executor_3|process_executor_4|
+|-|-|-|-|-|-|
+|time|21.006s|12.007s|9.007s|12.332s|9.354s|
