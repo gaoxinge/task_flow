@@ -2,7 +2,7 @@
 
 ## 安装
 
-```shell
+```
 pip install git+https://github.com/gaoxinge/task_flow
 ```
 
