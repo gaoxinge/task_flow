@@ -1,0 +1,19 @@
+syntax = "proto3";
+package example;
+
+message Inputs {
+    int32 x = 1;
+    int32 y = 2;
+}
+
+message Outputs {
+    int32 x = 1;
+    int32 y = 2;
+    int32 z = 3;
+    int32 w = 4;
+}
+
+service App {
+    rpc Compute (Inputs) returns (Outputs) {
+    }
+}
