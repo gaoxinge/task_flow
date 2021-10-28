@@ -1,92 +1,112 @@
+from typing import Any, Callable, Generator
 from graphviz import Digraph
 
-__all__ = ["Graph", "Task"]
-
-
-class Global:
-
-    def __init__(self):
-        self.stack = []
-
-    def push(self, graph):
-        self.stack.append(graph)
-
-    def pop(self):
-        return self.stack.pop()
-
-    def top(self):
-        return self.stack[-1]
-
-
-_global = Global()
-
-
-class Graph:
-
-    def __init__(self, name):
-        self.name = name
-        self.roots = []
-        self.names = {}
-
-    def add(self, task):
-        self.roots.append(task)
-
-    def check_name(self, name, task):
-        if name in self.names:
-            raise Exception("duplicated name %s" % name)
-        self.names[name] = task
-
-    def output(self, loop):
-        degree = {task.name: len(task.parents) for task in self}
-        for task in self.roots:
-            loop.put(task)
-
-        while True:
-            task = loop.get()
-            for child in task.children:
-                degree[child.name] -= 1
-                if degree[child.name] == 0:
-                    loop.put(child)
-
-    def show(self, filename):
-        dot = Digraph(self.name)
-        for task in self:
-            for child in task.children:
-                dot.edge(task.name, child.name)
-        dot.render(filename)
-
-    def __iter__(self):
-        for task in self.names.values():
-            yield task
-
-    def __enter__(self):
-        _global.push(self)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        _global.pop()
-        return self
+__all__ = [
+    "Task",
+    "InputTask",
+    "Graph",
+    "Namespace",
+]
 
 
 class Task:
 
-    def __init__(self, name, f, *tasks):
-        graph = _global.top()
-        graph.check_name(name, self)
+    def __init__(self, name: str, f: Callable, *tasks: 'Task', output: bool = False, execute: str = "thread"):
         self.name = name
         self.f = f
+        self.output = output
+        self.execute = execute
         self.parents = []
         self.children = []
 
+        graph = _namespace.top()
+        graph[name] = self
         if len(tasks) == 0:
-            graph.add(self)
+            graph.add_root(self)
         else:
             for task in tasks:
-                task.add_child(self)
-                self.add_parent(task)
+                task.children.append(self)
+                self.parents.append(task)
 
-    def add_parent(self, task):
-        self.parents.append(task)
+    def run(self, *inputs: Any):
+        return self.f(*inputs)
 
-    def add_child(self, task):
-        self.children.append(task)
+
+class InputTask(Task):
+
+    def __init__(self, name: str, f: Callable, output: bool = False, execute: str = "thread"):
+        super(InputTask, self).__init__(name, f, output=output, execute=execute)
+
+
+class Graph:
+
+    def __init__(self, name: str):
+        self.name = name
+        self.names = {}
+        self.roots = []
+
+    def __setitem__(self, name: str, task: Task):
+        if name in self.names:
+            raise Exception("duplicated name %s" % name)
+        self.names[name] = task
+
+    def __getitem__(self, name: str) -> Task:
+        return self.names[name]
+
+    def __iter__(self) -> Generator[Task, None, None]:
+        for task in self.names.values():
+            yield task
+
+    def __enter__(self) -> 'Graph':
+        _namespace.push(self)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> 'Graph':
+        _namespace.pop()
+        return self
+
+    def add_root(self, task: Task):
+        self.roots.append(task)
+
+    def show(self, filename: str):
+        dot = Digraph(self.name)
+        s = "name[%s]\\n" \
+            "type[%s]\\n" \
+            "output[%s]\\n" \
+            "executor[%s]"
+        for task in self:
+            t = (
+                task.name,
+                task.__class__.__name__,
+                task.output,
+                task.execute
+            )
+            task_name = s % t
+            for child in task.children:
+                t = (
+                    child.name,
+                    child.__class__.__name__,
+                    child.output,
+                    child.execute
+                )
+                child_name = s % t
+                dot.edge(task_name, child_name)
+        dot.render(filename)
+
+
+class Namespace:
+
+    def __init__(self):
+        self.stack = []
+
+    def push(self, graph: Graph):
+        self.stack.append(graph)
+
+    def pop(self) -> Graph:
+        return self.stack.pop()
+
+    def top(self) -> Graph:
+        return self.stack[-1]
+
+
+_namespace = Namespace()
