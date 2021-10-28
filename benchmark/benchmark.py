@@ -28,9 +28,9 @@ def div0(a, b):
     return floordiv(a, b)
 
 
-def print0(a, b, c, d):
+def print0(*args):
     time.sleep(3)
-    return print(a, b, c, d)
+    return print(*args)
 
 
 def benchmark(executor, graph):
