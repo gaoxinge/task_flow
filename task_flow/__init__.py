@@ -1,2 +1,2 @@
-from runtime import *
-from lang import *
+from .runtime import *
+from .lang import *
