@@ -1,13 +1,24 @@
+import ast
 from operator import add, sub, mul, floordiv
-from task_flow import InputTask, Task, Graph
+from task_flow import Graph, Transformer
+
+code = """
+def f(a, b):
+    _int1 = int(a)
+    _int2 = int(b)
+    _add = add(_int1, _int2)
+    _sub = sub(_int1, _int2)
+    _mul = mul(_int1, _int2)
+    _div = floordiv(_int1, _int2)
+    print(_add, _sub, _mul, _div)
+"""
 
 if __name__ == "__main__":
     with Graph(name="test") as graph:
-        _int1 = InputTask("int1", int)
-        _int2 = InputTask("int2", int)
-        _add = Task("add", add, _int1, _int2, output=True)
-        _sub = Task("sub", sub, _int1, _int2, output=True)
-        _mul = Task("mul", mul, _int1, _int2, execute="process")
-        _div = Task("div", floordiv, _int1, _int2, execute="process")
-        _print = Task("print", print, _add, _sub, _mul, _div)
+        env = globals()
+        env["int"] = int
+        env["print"] = print
+        root = ast.parse(code)
+        transformer = Transformer(env)
+        transformer.visit(root)
         graph.show("result/test.gv")

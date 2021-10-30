@@ -80,21 +80,30 @@ class Transformer(ast.NodeTransformer):
         self.visit(node.value)
 
 
-def transform(env={}, execute="simple", executor_args=[]):
+def transform(env={}, execute="simple", executor_args=[], executor=None):
     def dec(f):
         def g(*args, **kwargs):
-            if execute == "simple":
-                executor_class = SimpleExecutor
-            elif execute == "thread":
-                executor_class = ThreadExecutor
-            elif execute == "process":
-                executor_class = ProcessExecutor
-            elif execute == "hyper":
-                executor_class = HyperExecutor
-            else:
-                raise Exception("unknown execute %s" % execute)
+            if executor is None:
+                if execute == "simple":
+                    executor_class = SimpleExecutor
+                elif execute == "thread":
+                    executor_class = ThreadExecutor
+                elif execute == "process":
+                    executor_class = ProcessExecutor
+                elif execute == "hyper":
+                    executor_class = HyperExecutor
+                else:
+                    raise Exception("unknown execute %s" % execute)
 
-            with executor_class(*executor_args) as executor:
+                with executor_class(*executor_args) as executor0:
+                    with Graph("test") as graph:
+                        src = inspect.getsource(f)
+                        root = ast.parse(src)
+                        transformer = Transformer(env)
+                        transformer.visit(root)
+                        inputs_tuple = tuple([arg] for arg in args)
+                        return executor0.run(graph, inputs_tuple=inputs_tuple, inputs_map={})
+            else:
                 with Graph("test") as graph:
                     src = inspect.getsource(f)
                     root = ast.parse(src)

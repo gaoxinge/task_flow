@@ -1,7 +1,7 @@
 import time
 from operator import add, sub, mul, floordiv
 from flask import Flask, request, jsonify
-from task_flow import Graph, InputTask, Task, HyperExecutor
+from task_flow import HyperExecutor, transform
 
 
 def int0(x):
@@ -34,35 +34,30 @@ def print0(*args):
     return print(*args)
 
 
+executor = HyperExecutor(thread_num=2, process_num=2)
+
+
+@transform(globals(), executor=executor)
+def f(a, b):
+    _int1 = int0(a)
+    _int2 = int0(b)
+    _add = add0(_int1, _int2)
+    _sub = sub0(_int1, _int2)
+    _mul = mul0(_int1, _int2)
+    _div = div0(_int1, _int2)
+    return _add, _sub, _mul, _div
+
+
 class App(Flask):
 
     def __init__(self):
         super(App, self).__init__(__name__)
-
-        with Graph(name="test") as graph:
-            _int1 = InputTask("int1", int0)
-            _int2 = InputTask("int2", int0)
-            _add = Task("add", add0, _int1, _int2, output=True)
-            _sub = Task("sub", sub0, _int1, _int2, output=True)
-            _mul = Task("mul", mul0, _int1, _int2, output=True, execute="process")
-            _div = Task("div", div0, _int1, _int2, output=True, execute="process")
-            _print = Task("print", print0, _add, _sub, _mul, _div)
-            self.graph = graph
-
-        self.executor = HyperExecutor(thread_num=2, process_num=2)
-
         self.add_url_rule("/compute", view_func=self.compute, methods=["POST"])
 
     def compute(self):
         inputs = request.json
-        inputs_map = {"int1": [inputs["x"]], "int2": [inputs["y"]]}
-        outputs_map = self.executor.run(self.graph, inputs_map=inputs_map)
-        outputs = {
-            "x": outputs_map["add"],
-            "y": outputs_map["sub"],
-            "z": outputs_map["mul"],
-            "w": outputs_map["div"]
-        }
+        x, y, z, w = f(inputs["x"], inputs["y"])
+        outputs = {"x": x, "y": y, "z": z, "w": w}
         return jsonify(outputs)
 
 
