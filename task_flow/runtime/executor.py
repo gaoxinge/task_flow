@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Dict
+from typing import Any, List, Tuple, Dict
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, wait, FIRST_COMPLETED
 from .task import InputTask, NamedInputTask, Graph
 
@@ -23,7 +23,7 @@ class Executor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def run(self, graph: Graph, inputs_tuple: Tuple[List], inputs_map: Dict[str, List]) -> Tuple:
+    def run(self, graph: Graph, inputs_tuple: Tuple[List, ...], inputs_map: Dict[str, List]) -> Tuple[Any, ...]:
         raise NotImplementedError
 
 
@@ -35,7 +35,7 @@ class SimpleExecutor(Executor):
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
         return exc_type is None
 
-    def run(self, graph: Graph, inputs_tuple: Tuple[List], inputs_map: Dict[str, List]) -> Tuple:
+    def run(self, graph: Graph, inputs_tuple: Tuple[List, ...], inputs_map: Dict[str, List]) -> Tuple[Any, ...]:
         ready = [root for root in graph.roots]
         waiting = {task.id: len(task.parents) for task in graph if task not in graph.roots}
         output = {}
@@ -83,7 +83,7 @@ class ThreadExecutor(Executor):
         self.thread_pool.__exit__(exc_type, exc_val, exc_tb)
         return exc_type is None
 
-    def run(self, graph: Graph, inputs_tuple: Tuple[List], inputs_map: Dict[str, List]) -> Tuple:
+    def run(self, graph: Graph, inputs_tuple: Tuple[List, ...], inputs_map: Dict[str, List]) -> Tuple[Any, ...]:
         ready = [root for root in graph.roots]
         futures = []
         for root in graph.roots:
@@ -134,7 +134,7 @@ class ProcessExecutor(Executor):
         self.process_pool.__exit__(exc_type, exc_val, exc_tb)
         return exc_type is None
 
-    def run(self, graph: Graph, inputs_tuple: Tuple[List], inputs_map: Dict[str, List]) -> Tuple:
+    def run(self, graph: Graph, inputs_tuple: Tuple[List, ...], inputs_map: Dict[str, List]) -> Tuple[Any, ...]:
         ready = [root for root in graph.roots]
         futures = []
         for root in graph.roots:
@@ -187,7 +187,7 @@ class HyperExecutor(Executor):
         self.process_pool.__exit__(exc_type, exc_val, exc_tb)
         return exc_type is None
 
-    def run(self, graph: Graph, inputs_tuple: Tuple[List], inputs_map: Dict[str, List]) -> Tuple:
+    def run(self, graph: Graph, inputs_tuple: Tuple[List, ...], inputs_map: Dict[str, List]) -> Tuple[Any, ...]:
         ready = [root for root in graph.roots]
         futures = []
         for root in graph.roots:
