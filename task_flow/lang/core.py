@@ -1,8 +1,9 @@
 from operator import add, sub, mul, truediv, floordiv
-from ..runtime import InputTask, ReturnTask, Task
+from ..runtime import InputTask, NamedInputTask, ReturnTask, Task
 
 __all__ = [
     "EchoInputTask",
+    "EchoNamedInputTask",
     "EchoReturnTask",
     "ConstantTask",
     "AddTask",
@@ -15,8 +16,14 @@ __all__ = [
 
 class EchoInputTask(InputTask):
 
-    def __init__(self, name: str, execute: str = "thread"):
-        super(EchoInputTask, self).__init__(name, lambda _: _, execute=execute)
+    def __init__(self, execute: str = "thread"):
+        super(EchoInputTask, self).__init__(lambda _: _, execute=execute)
+
+
+class EchoNamedInputTask(NamedInputTask):
+
+    def __init__(self, name, execute: str = "thread"):
+        super(EchoNamedInputTask, self).__init__(name, lambda _: _, execute=execute)
 
 
 class EchoReturnTask(ReturnTask):
