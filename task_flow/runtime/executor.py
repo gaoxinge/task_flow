@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Tuple, Dict
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, wait, FIRST_COMPLETED
 from .task import InputTask, Graph
 
@@ -23,7 +23,7 @@ class Executor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def run(self, graph: Graph, inputs_map: Dict[str, Any]) -> Dict[str, Any]:
+    def run(self, graph: Graph, inputs_map: Dict[str, Any]) -> Tuple:
         raise NotImplementedError
 
 
@@ -35,7 +35,7 @@ class SimpleExecutor(Executor):
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
         return exc_type is None
 
-    def run(self, graph: Graph, inputs_map: Dict[str, Any]) -> Dict[str, Any]:
+    def run(self, graph: Graph, inputs_map: Dict[str, Any]) -> Tuple:
         ready = [root for root in graph.roots]
         waiting = {task.id: len(task.parents) for task in graph if task not in graph.roots}
         output = {}
@@ -65,7 +65,7 @@ class SimpleExecutor(Executor):
                     ready.append(child)
                     del waiting[child.id]
 
-        return {return_task.name: output[return_task.id][0] for return_task in graph.returns}
+        return tuple(output[return_task.id][0] for return_task in graph.returns)
 
 
 class ThreadExecutor(Executor):
@@ -80,7 +80,7 @@ class ThreadExecutor(Executor):
         self.thread_pool.__exit__(exc_type, exc_val, exc_tb)
         return exc_type is None
 
-    def run(self, graph: Graph, inputs_map: Dict[str, Any]) -> Dict[str, Any]:
+    def run(self, graph: Graph, inputs_map: Dict[str, Any]) -> Tuple:
         ready = [root for root in graph.roots]
         futures = []
         for root in graph.roots:
@@ -113,7 +113,7 @@ class ThreadExecutor(Executor):
                     futures.append(self.thread_pool.submit(child.f, *inputs))
                     del waiting[child.id]
 
-        return {return_task.name: output[return_task.id][0] for return_task in graph.returns}
+        return tuple(output[return_task.id][0] for return_task in graph.returns)
 
 
 class ProcessExecutor(Executor):
@@ -128,7 +128,7 @@ class ProcessExecutor(Executor):
         self.process_pool.__exit__(exc_type, exc_val, exc_tb)
         return exc_type is None
 
-    def run(self, graph: Graph, inputs_map: Dict[str, Any]) -> Dict[str, Any]:
+    def run(self, graph: Graph, inputs_map: Dict[str, Any]) -> Tuple:
         ready = [root for root in graph.roots]
         futures = []
         for root in graph.roots:
@@ -161,7 +161,7 @@ class ProcessExecutor(Executor):
                     futures.append(self.process_pool.submit(child.f, *inputs))
                     del waiting[child.id]
 
-        return {return_task.name: output[return_task.id][0] for return_task in graph.returns}
+        return tuple(output[return_task.id][0] for return_task in graph.returns)
 
 
 class HyperExecutor(Executor):
@@ -178,7 +178,7 @@ class HyperExecutor(Executor):
         self.process_pool.__exit__(exc_type, exc_val, exc_tb)
         return exc_type is None
 
-    def run(self, graph: Graph, inputs_map: Dict[str, Any]) -> Dict[str, Any]:
+    def run(self, graph: Graph, inputs_map: Dict[str, Any]) -> Tuple:
         ready = [root for root in graph.roots]
         futures = []
         for root in graph.roots:
@@ -217,4 +217,4 @@ class HyperExecutor(Executor):
                         futures.append(self.process_pool.submit(child.f, *inputs))
                     del waiting[child.id]
 
-        return {return_task.name: output[return_task.id][0] for return_task in graph.returns}
+        return tuple(output[return_task.id][0] for return_task in graph.returns)
