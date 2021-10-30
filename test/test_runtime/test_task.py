@@ -1,6 +1,6 @@
 import unittest
 from operator import add, sub, mul, floordiv
-from task_flow import Task, InputTask, ReturnTask, Graph
+from task_flow import InputTask, ReturnTask, Task, Graph
 
 
 class TestTask(unittest.TestCase):

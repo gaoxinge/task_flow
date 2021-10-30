@@ -2,9 +2,9 @@ from typing import Any, Callable, Generator
 from graphviz import Digraph
 
 __all__ = [
-    "Task",
     "InputTask",
     "ReturnTask",
+    "Task",
     "Graph",
     "Namespace",
 ]
