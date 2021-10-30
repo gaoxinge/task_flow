@@ -4,6 +4,7 @@ from graphviz import Digraph
 __all__ = [
     "Task",
     "InputTask",
+    "ReturnTask",
     "Graph",
     "Namespace",
 ]
@@ -11,22 +12,31 @@ __all__ = [
 
 class Task:
 
-    def __init__(self, name: str, f: Callable, *tasks: 'Task', output: bool = False, execute: str = "thread"):
+    def __init__(self, name: str, f: Callable, *tasks: 'Task', execute: str = "thread"):
+        self.id = 0
         self.name = name
         self.f = f
-        self.output = output
         self.execute = execute
         self.parents = []
         self.children = []
 
         graph = _namespace.top()
-        graph[name] = self
-        if len(tasks) == 0:
-            graph.add_root(self)
-        else:
-            for task in tasks:
-                task.children.append(self)
-                self.parents.append(task)
+        graph.add_task(self, *tasks)
+
+    def __str__(self) -> str:
+        s = "%s(\\n" \
+            "id=%s,\\n" \
+            "name=%s,\\n" \
+            "executor=%s)"
+        t = (
+            self.__class__.__name__,
+            self.id,
+            self.name,
+            self.execute
+        )
+        return s % t
+
+    __repr__ = __str__
 
     def run(self, *inputs: Any):
         return self.f(*inputs)
@@ -34,24 +44,26 @@ class Task:
 
 class InputTask(Task):
 
-    def __init__(self, name: str, f: Callable, output: bool = False, execute: str = "thread"):
-        super(InputTask, self).__init__(name, f, output=output, execute=execute)
+    def __init__(self, name: str, f: Callable, execute: str = "thread"):
+        super(InputTask, self).__init__(name, f, execute=execute)
+
+
+class ReturnTask(Task):
+
+    pass
 
 
 class Graph:
 
     def __init__(self, name: str):
+        self.frozen = False
         self.name = name
-        self.names = {}
+        self.id = 0
+        self.inputs = []
+        self.returns = []
         self.roots = []
-
-    def __setitem__(self, name: str, task: Task):
-        if name in self.names:
-            raise Exception("duplicated name %s" % name)
-        self.names[name] = task
-
-    def __getitem__(self, name: str) -> Task:
-        return self.names[name]
+        self.names = {}
+        self.visible = {}
 
     def __iter__(self) -> Generator[Task, None, None]:
         for task in self.names.values():
@@ -61,37 +73,59 @@ class Graph:
         _namespace.push(self)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> 'Graph':
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
         _namespace.pop()
-        return self
+        return exc_type is None
 
-    def add_root(self, task: Task):
-        self.roots.append(task)
+    def add_task(self, task: Task, *tasks: Task):
+        if self.frozen:
+            raise Exception("frozen graph %s" % self.name)
+
+        if isinstance(task, InputTask):
+            for input_task in self.inputs:
+                if task.name == input_task.name:
+                    raise Exception("duplicate input task name %s" % task.name)
+
+        if isinstance(task, ReturnTask):
+            for return_task in self.returns:
+                if task.name == return_task.name:
+                    raise Exception("duplicate return task name %s" % task.name)
+
+        for parent in tasks:
+            if self.visible[parent.name] != parent.id:
+                raise Exception("non visible parent task %s" % parent.name)
+            if isinstance(parent, ReturnTask):
+                raise Exception("dependent return task parent %s" % parent.name)
+
+        self.id += 1
+
+        task.id = self.id
+
+        self.names[self.id] = task
+        self.visible[task.name] = self.id
+
+        if isinstance(task, InputTask):
+            self.inputs.append(task)
+
+        if isinstance(task, ReturnTask):
+            self.returns.append(task)
+
+        if len(tasks) == 0:
+            self.roots.append(task)
+        else:
+            for parent in tasks:
+                parent.children.append(task)
+                task.parents.append(parent)
 
     def show(self, filename: str):
         dot = Digraph(self.name)
-        s = "name[%s]\\n" \
-            "type[%s]\\n" \
-            "output[%s]\\n" \
-            "executor[%s]"
         for task in self:
-            t = (
-                task.name,
-                task.__class__.__name__,
-                task.output,
-                task.execute
-            )
-            task_name = s % t
             for child in task.children:
-                t = (
-                    child.name,
-                    child.__class__.__name__,
-                    child.output,
-                    child.execute
-                )
-                child_name = s % t
-                dot.edge(task_name, child_name)
+                dot.edge(str(task), str(child))
         dot.render(filename)
+
+    def froze(self):
+        self.frozen = True
 
 
 class Namespace:
