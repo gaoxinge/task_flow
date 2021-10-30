@@ -58,7 +58,7 @@ class SimpleExecutor(Executor):
                         del output[parent.id]
 
             # step3: get result
-            result = task.f(*inputs)
+            result = task.run(*inputs)
             output[task.id] = [result, len(task.children)]
 
             # step4: get ready
@@ -94,7 +94,7 @@ class ThreadExecutor(Executor):
                 inputs = inputs_map[root.name]
             else:
                 inputs = []
-            futures.append(self.thread_pool.submit(root.f, *inputs))
+            futures.append(self.thread_pool.submit(root.run, *inputs))
         waiting = {task.id: len(task.parents) for task in graph if task not in graph.roots}
         output = {}
         while len(ready) != 0:
@@ -116,7 +116,7 @@ class ThreadExecutor(Executor):
                             del output[parent.id]
 
                     ready.append(child)
-                    futures.append(self.thread_pool.submit(child.f, *inputs))
+                    futures.append(self.thread_pool.submit(child.run, *inputs))
                     del waiting[child.id]
 
         return tuple(output[return_task.id][0] for return_task in graph.returns)
@@ -145,7 +145,7 @@ class ProcessExecutor(Executor):
                 inputs = inputs_map[root.name]
             else:
                 inputs = []
-            futures.append(self.process_pool.submit(root.f, *inputs))
+            futures.append(self.process_pool.submit(root.run, *inputs))
         waiting = {task.id: len(task.parents) for task in graph if task not in graph.roots}
         output = {}
         while len(ready) != 0:
@@ -167,7 +167,7 @@ class ProcessExecutor(Executor):
                             del output[parent.id]
 
                     ready.append(child)
-                    futures.append(self.process_pool.submit(child.f, *inputs))
+                    futures.append(self.process_pool.submit(child.run, *inputs))
                     del waiting[child.id]
 
         return tuple(output[return_task.id][0] for return_task in graph.returns)
@@ -199,9 +199,9 @@ class HyperExecutor(Executor):
             else:
                 inputs = []
             if root.execute == "thread":
-                futures.append(self.thread_pool.submit(root.f, *inputs))
+                futures.append(self.thread_pool.submit(root.run, *inputs))
             else:
-                futures.append(self.process_pool.submit(root.f, *inputs))
+                futures.append(self.process_pool.submit(root.run, *inputs))
         waiting = {task.id: len(task.parents) for task in graph if task not in graph.roots}
         output = {}
         while len(ready) != 0:
@@ -224,9 +224,9 @@ class HyperExecutor(Executor):
 
                     ready.append(child)
                     if child.execute == "thread":
-                        futures.append(self.thread_pool.submit(child.f, *inputs))
+                        futures.append(self.thread_pool.submit(child.run, *inputs))
                     else:
-                        futures.append(self.process_pool.submit(child.f, *inputs))
+                        futures.append(self.process_pool.submit(child.run, *inputs))
                     del waiting[child.id]
 
         return tuple(output[return_task.id][0] for return_task in graph.returns)

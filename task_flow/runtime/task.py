@@ -36,7 +36,7 @@ class Task:
 
     __repr__ = __str__
 
-    def run(self, *inputs: Any):
+    def run(self, *inputs: Any) -> Any:
         return self.f(*inputs)
 
 

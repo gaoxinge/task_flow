@@ -80,21 +80,17 @@ class Transformer(ast.NodeTransformer):
         self.visit(node.value)
 
 
-def transform(env=None, execute="thread"):
+def transform(env={}, execute="simple", executor_args=[]):
     def dec(f):
         def g(*args, **kwargs):
             if execute == "simple":
                 executor_class = SimpleExecutor
-                executor_args = []
             elif execute == "thread":
                 executor_class = ThreadExecutor
-                executor_args = [3]
             elif execute == "process":
                 executor_class = ProcessExecutor
-                executor_args = [3]
             elif execute == "hyper":
                 executor_class = HyperExecutor
-                executor_args = [2, 2]
             else:
                 raise Exception("unknown execute %s" % execute)
 

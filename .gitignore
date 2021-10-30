@@ -2,5 +2,5 @@
 __pycache__
 *.pyc
 test/test_runtime/result
-test/test_core/result
+test/test_lang/result
 test/test_transform/result

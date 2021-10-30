@@ -1,3 +1,4 @@
+from typing import Any
 from operator import add, sub, mul, truediv, floordiv
 from ..runtime import InputTask, NamedInputTask, ReturnTask, Task
 
@@ -14,28 +15,36 @@ __all__ = [
 ]
 
 
+def echo(x):
+    return x
+
+
 class EchoInputTask(InputTask):
 
     def __init__(self, execute: str = "thread"):
-        super(EchoInputTask, self).__init__(lambda _: _, execute=execute)
+        super(EchoInputTask, self).__init__(echo, execute=execute)
 
 
 class EchoNamedInputTask(NamedInputTask):
 
     def __init__(self, name, execute: str = "thread"):
-        super(EchoNamedInputTask, self).__init__(name, lambda _: _, execute=execute)
+        super(EchoNamedInputTask, self).__init__(name, echo, execute=execute)
 
 
 class EchoReturnTask(ReturnTask):
 
     def __init__(self, task, execute: str = "thread"):
-        super(EchoReturnTask, self).__init__(lambda _: _, task, execute=execute)
+        super(EchoReturnTask, self).__init__(echo, task, execute=execute)
 
 
 class ConstantTask(Task):
 
     def __init__(self, value, execute: str = "thread"):
-        super(ConstantTask, self).__init__(lambda: value, execute=execute)
+        super(ConstantTask, self).__init__(echo, execute=execute)
+        self.value = value
+
+    def run(self, *inputs: Any) -> Any:
+        return self.value
 
 
 class AddTask(Task):
