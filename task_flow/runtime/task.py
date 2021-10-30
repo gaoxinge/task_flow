@@ -3,6 +3,7 @@ from graphviz import Digraph
 
 __all__ = [
     "InputTask",
+    "NamedInputTask",
     "ReturnTask",
     "Task",
     "Graph",
@@ -41,9 +42,14 @@ class Task:
 
 class InputTask(Task):
 
+    pass
+
+
+class NamedInputTask(Task):
+
     def __init__(self, name: str, f: Callable, execute: str = "thread"):
         self.name = name
-        super(InputTask, self).__init__(f, execute=execute)
+        super(NamedInputTask, self).__init__(f, execute=execute)
 
     def __str__(self) -> str:
         s = "%s(\\n" \
@@ -71,7 +77,8 @@ class Graph:
     def __init__(self, name: str):
         self.name = name
         self.id = 0
-        self.inputs = []
+        self.args_inputs = []
+        self.kwargs_inputs = []
         self.returns = []
         self.roots = []
         self.names = {}
@@ -89,10 +96,10 @@ class Graph:
         return exc_type is None
 
     def add_task(self, task: Task, *tasks: Task):
-        if isinstance(task, InputTask):
-            for input_task in self.inputs:
+        if isinstance(task, NamedInputTask):
+            for input_task in self.kwargs_inputs:
                 if task.name == input_task.name:
-                    raise Exception("duplicate input task name %s" % task)
+                    raise Exception("duplicated name input task %s" % task)
 
         for parent in tasks:
             if isinstance(parent, ReturnTask):
@@ -103,7 +110,10 @@ class Graph:
         self.names[task.id] = task
 
         if isinstance(task, InputTask):
-            self.inputs.append(task)
+            self.args_inputs.append(task)
+
+        if isinstance(task, NamedInputTask):
+            self.kwargs_inputs.append(task)
 
         if isinstance(task, ReturnTask):
             self.returns.append(task)

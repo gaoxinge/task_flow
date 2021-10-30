@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Any, Tuple, Dict
+from typing import List, Tuple, Dict
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, wait, FIRST_COMPLETED
-from .task import InputTask, Graph
+from .task import InputTask, NamedInputTask, Graph
 
 __all__ = [
     "Executor",
@@ -23,7 +23,7 @@ class Executor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def run(self, graph: Graph, inputs_map: Dict[str, Any]) -> Tuple:
+    def run(self, graph: Graph, inputs_tuple: Tuple[List], inputs_map: Dict[str, List]) -> Tuple:
         raise NotImplementedError
 
 
@@ -35,7 +35,7 @@ class SimpleExecutor(Executor):
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
         return exc_type is None
 
-    def run(self, graph: Graph, inputs_map: Dict[str, Any]) -> Tuple:
+    def run(self, graph: Graph, inputs_tuple: Tuple[List], inputs_map: Dict[str, List]) -> Tuple:
         ready = [root for root in graph.roots]
         waiting = {task.id: len(task.parents) for task in graph if task not in graph.roots}
         output = {}
@@ -45,6 +45,9 @@ class SimpleExecutor(Executor):
 
             # step2: get inputs
             if isinstance(task, InputTask):
+                i = next(i for i, input_task in enumerate(graph.args_inputs) if task.id == input_task.id)
+                inputs = inputs_tuple[i]
+            elif isinstance(task, NamedInputTask):
                 inputs = inputs_map[task.name]
             else:
                 inputs = []
@@ -80,11 +83,14 @@ class ThreadExecutor(Executor):
         self.thread_pool.__exit__(exc_type, exc_val, exc_tb)
         return exc_type is None
 
-    def run(self, graph: Graph, inputs_map: Dict[str, Any]) -> Tuple:
+    def run(self, graph: Graph, inputs_tuple: Tuple[List], inputs_map: Dict[str, List]) -> Tuple:
         ready = [root for root in graph.roots]
         futures = []
         for root in graph.roots:
             if isinstance(root, InputTask):
+                i = next(i for i, input_task in enumerate(graph.args_inputs) if root.id == input_task.id)
+                inputs = inputs_tuple[i]
+            elif isinstance(root, NamedInputTask):
                 inputs = inputs_map[root.name]
             else:
                 inputs = []
@@ -128,11 +134,14 @@ class ProcessExecutor(Executor):
         self.process_pool.__exit__(exc_type, exc_val, exc_tb)
         return exc_type is None
 
-    def run(self, graph: Graph, inputs_map: Dict[str, Any]) -> Tuple:
+    def run(self, graph: Graph, inputs_tuple: Tuple[List], inputs_map: Dict[str, List]) -> Tuple:
         ready = [root for root in graph.roots]
         futures = []
         for root in graph.roots:
             if isinstance(root, InputTask):
+                i = next(i for i, input_task in enumerate(graph.args_inputs) if root.id == input_task.id)
+                inputs = inputs_tuple[i]
+            elif isinstance(root, NamedInputTask):
                 inputs = inputs_map[root.name]
             else:
                 inputs = []
@@ -178,11 +187,14 @@ class HyperExecutor(Executor):
         self.process_pool.__exit__(exc_type, exc_val, exc_tb)
         return exc_type is None
 
-    def run(self, graph: Graph, inputs_map: Dict[str, Any]) -> Tuple:
+    def run(self, graph: Graph, inputs_tuple: Tuple[List], inputs_map: Dict[str, List]) -> Tuple:
         ready = [root for root in graph.roots]
         futures = []
         for root in graph.roots:
             if isinstance(root, InputTask):
+                i = next(i for i, input_task in enumerate(graph.args_inputs) if root.id == input_task.id)
+                inputs = inputs_tuple[i]
+            elif isinstance(root, NamedInputTask):
                 inputs = inputs_map[root.name]
             else:
                 inputs = []
