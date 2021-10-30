@@ -1,8 +1,9 @@
 from operator import add, sub, mul, truediv, floordiv
-from ..runtime import InputTask, Task
+from ..runtime import InputTask, ReturnTask, Task
 
 __all__ = [
-    "EchoTask",
+    "EchoInputTask",
+    "EchoReturnTask",
     "ConstantTask",
     "AddTask",
     "SubTask",
@@ -12,43 +13,49 @@ __all__ = [
 ]
 
 
-class EchoTask(InputTask):
+class EchoInputTask(InputTask):
 
-    def __init__(self, name: str, output: bool = False, execute: str = "thread"):
-        super(EchoTask, self).__init__(name, lambda _: _, output=output, execute=execute)
+    def __init__(self, name: str, execute: str = "thread"):
+        super(EchoInputTask, self).__init__(name, lambda _: _, execute=execute)
+
+
+class EchoReturnTask(ReturnTask):
+
+    def __init__(self, task, execute: str = "thread"):
+        super(EchoReturnTask, self).__init__(lambda _: _, task, execute=execute)
 
 
 class ConstantTask(Task):
 
-    def __init__(self, name: str, value, output: bool = False, execute: str = "thread"):
-        super(ConstantTask, self).__init__(name, lambda _: value, output=output, execute=execute)
+    def __init__(self, value, execute: str = "thread"):
+        super(ConstantTask, self).__init__(lambda: value, execute=execute)
 
 
 class AddTask(Task):
 
-    def __init__(self, name: str, task1, task2, output: bool = False, execute: str = "thread"):
-        super(AddTask, self).__init__(name, add, task1, task2, output=output, execute=execute)
+    def __init__(self, task1, task2, execute: str = "thread"):
+        super(AddTask, self).__init__(add, task1, task2, execute=execute)
 
 
 class SubTask(Task):
 
-    def __init__(self, name: str, task1, task2, output: bool = False, execute: str = "thread"):
-        super(SubTask, self).__init__(name, sub, task1, task2, output=output, execute=execute)
+    def __init__(self, task1, task2, execute: str = "thread"):
+        super(SubTask, self).__init__(sub, task1, task2, execute=execute)
 
 
 class MulTask(Task):
 
-    def __init__(self, name: str, task1, task2, output: bool = False, execute: str = "thread"):
-        super(MulTask, self).__init__(name, mul, task1, task2, output=output, execute=execute)
+    def __init__(self, task1, task2, execute: str = "thread"):
+        super(MulTask, self).__init__(mul, task1, task2, execute=execute)
 
 
 class TrueDivTask(Task):
 
-    def __init__(self, name: str, task1, task2, output: bool = False, execute: str = "thread"):
-        super(TrueDivTask, self).__init__(name, truediv, task1, task2, output=output, execute=execute)
+    def __init__(self, task1, task2, execute: str = "thread"):
+        super(TrueDivTask, self).__init__(truediv, task1, task2, execute=execute)
 
 
 class FloorDivTask(Task):
 
-    def __init__(self, name: str, task1, task2, output: bool = False, execute: str = "thread"):
-        super(FloorDivTask, self).__init__(name, floordiv, task1, task2, output=output, execute=execute)
+    def __init__(self, task1, task2, execute: str = "thread"):
+        super(FloorDivTask, self).__init__(floordiv, task1, task2, execute=execute)

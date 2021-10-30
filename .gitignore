@@ -2,3 +2,4 @@
 __pycache__
 *.pyc
 test/test_runtime/result
+test/test_core/result
