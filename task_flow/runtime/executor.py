@@ -1,232 +1,140 @@
+import multiprocessing
 from abc import ABC, abstractmethod
-from typing import Any, List, Tuple, Dict
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, wait, FIRST_COMPLETED
-from .task import InputTask, NamedInputTask, Graph
+from concurrent.futures import (
+    FIRST_COMPLETED,
+    Future,
+    ProcessPoolExecutor,
+    ThreadPoolExecutor,
+    wait,
+)
+from typing import Any, Dict, Optional, Tuple
 
-__all__ = [
-    "Executor",
-    "SimpleExecutor",
-    "ThreadExecutor",
-    "ProcessExecutor",
-    "HyperExecutor",
-]
+from task_flow.ir import GraphIR, NodeIR
+
+__all__ = ["Executor", "InlineExecutor", "ProcessExecutor", "ThreadExecutor"]
 
 
 class Executor(ABC):
-
-    @abstractmethod
-    def __enter__(self) -> 'Executor':
-        raise NotImplementedError
-
-    @abstractmethod
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        raise NotImplementedError
-
-    @abstractmethod
-    def run(self, graph: Graph, inputs_tuple: Tuple[List, ...], inputs_map: Dict[str, List]) -> Tuple[Any, ...]:
-        raise NotImplementedError
-
-
-class SimpleExecutor(Executor):
-
-    def __enter__(self) -> Executor:
+    def __enter__(self) -> "Executor":
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        return exc_type is None
+        self.close()
+        return False
 
-    def run(self, graph: Graph, inputs_tuple: Tuple[List, ...], inputs_map: Dict[str, List]) -> Tuple[Any, ...]:
-        ready = [root for root in graph.roots]
-        waiting = {task.id: len(task.parents) for task in graph if task not in graph.roots}
-        output = {}
-        while len(ready) != 0:
-            # step1: get task
-            task = ready.pop(0)
+    def close(self) -> None:
+        pass
 
-            # step2: get inputs
-            if isinstance(task, InputTask):
-                i = next(i for i, input_task in enumerate(graph.args_inputs) if task.id == input_task.id)
-                inputs = inputs_tuple[i]
-            elif isinstance(task, NamedInputTask):
-                inputs = inputs_map[task.name]
-            else:
-                inputs = []
-                for parent in task.parents:
-                    inputs.append(output[parent.id][0])
-                    output[parent.id][1] -= 1
-                    if output[parent.id][1] == 0:
-                        del output[parent.id]
+    def run(
+        self, function: Any, args: Tuple[Any, ...] = (), kwargs: Optional[Dict[str, Any]] = None
+    ) -> Any:
+        if not hasattr(function, "graph_ir") or not hasattr(function, "python_function"):
+            raise TypeError("Executor.run expects a CompiledFunction")
+        kwargs = {} if kwargs is None else dict(kwargs)
+        bound = __import__("inspect").signature(function.python_function).bind(*args, **kwargs)
+        graph = function.graph_ir  # type: GraphIR
+        values = {}  # type: Dict[str, Any]
+        for name, node_id in graph.inputs:
+            values[node_id] = bound.arguments[name]
+        for node in graph.nodes:
+            if node.kind == "constant":
+                values[node.id] = node.value
 
-            # step3: get result
-            result = task.run(*inputs)
-            output[task.id] = [result, len(task.children)]
+        calls = [node for node in graph.nodes if node.kind == "call"]
+        waiting = {
+            node.id: sum(dependency not in values for dependency in node.dependencies)
+            for node in calls
+        }
+        children = {}  # type: Dict[str, list]
+        for node in calls:
+            for dependency in node.dependencies:
+                children.setdefault(dependency, []).append(node.id)
+        node_map = graph.node_map
+        pending = {}  # type: Dict[Future, NodeIR]
 
-            # step4: get ready
-            for child in task.children:
-                waiting[child.id] -= 1
-                if waiting[child.id] == 0:
-                    ready.append(child)
-                    del waiting[child.id]
+        def submit(node: NodeIR) -> None:
+            inputs = tuple(values[dependency] for dependency in node.dependencies)
+            pending[self._submit(node, inputs)] = node
 
-        return tuple(output[return_task.id][0] for return_task in graph.returns)
+        for node in calls:
+            if waiting[node.id] == 0:
+                submit(node)
+
+        completed = 0
+        while pending:
+            future = self._wait_any(tuple(pending))
+            node = pending.pop(future)
+            values[node.id] = future.result()
+            completed += 1
+            for child_id in children.get(node.id, ()):
+                waiting[child_id] -= 1
+                if waiting[child_id] == 0:
+                    submit(node_map[child_id])
+
+        if completed != len(calls):
+            blocked = sorted(node.id for node in calls if node.id not in values)
+            raise ValueError("GraphIR contains a cycle or unresolved dependencies: %s" % blocked)
+        return self._build_result(graph, values)
+
+    @staticmethod
+    def _build_result(graph: GraphIR, values: Dict[str, Any]) -> Any:
+        results = tuple(values[node_id] for node_id in graph.outputs)
+        if graph.output_kind == "none":
+            return None
+        if graph.output_kind == "single":
+            return results[0]
+        if graph.output_kind == "list":
+            return list(results)
+        return results
+
+    @abstractmethod
+    def _submit(self, node: NodeIR, inputs: Tuple[Any, ...]) -> Future:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _wait_any(self, futures: Tuple[Future, ...]) -> Future:
+        raise NotImplementedError
 
 
-class ThreadExecutor(Executor):
+class InlineExecutor(Executor):
+    def _submit(self, node: NodeIR, inputs: Tuple[Any, ...]) -> Future:
+        future = Future()
+        try:
+            future.set_result(node.operation(*inputs))  # type: ignore[misc]
+        except BaseException as exc:
+            future.set_exception(exc)
+        return future
 
+    def _wait_any(self, futures: Tuple[Future, ...]) -> Future:
+        return futures[0]
+
+
+class _PoolExecutor(Executor):
+    pool = None
+
+    def _submit(self, node: NodeIR, inputs: Tuple[Any, ...]) -> Future:
+        return self.pool.submit(node.operation, *inputs)
+
+    def _wait_any(self, futures: Tuple[Future, ...]) -> Future:
+        done, _ = wait(futures, return_when=FIRST_COMPLETED)
+        return next(iter(done))
+
+    def close(self) -> None:
+        if self.pool is not None:
+            self.pool.shutdown(wait=True)
+
+
+class ThreadExecutor(_PoolExecutor):
     def __init__(self, thread_num: int):
-        self.thread_pool = ThreadPoolExecutor(max_workers=thread_num)
-
-    def __enter__(self) -> Executor:
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        self.thread_pool.__exit__(exc_type, exc_val, exc_tb)
-        return exc_type is None
-
-    def run(self, graph: Graph, inputs_tuple: Tuple[List, ...], inputs_map: Dict[str, List]) -> Tuple[Any, ...]:
-        ready = [root for root in graph.roots]
-        futures = []
-        for root in graph.roots:
-            if isinstance(root, InputTask):
-                i = next(i for i, input_task in enumerate(graph.args_inputs) if root.id == input_task.id)
-                inputs = inputs_tuple[i]
-            elif isinstance(root, NamedInputTask):
-                inputs = inputs_map[root.name]
-            else:
-                inputs = []
-            futures.append(self.thread_pool.submit(root.run, *inputs))
-        waiting = {task.id: len(task.parents) for task in graph if task not in graph.roots}
-        output = {}
-        while len(ready) != 0:
-            wait(futures, return_when=FIRST_COMPLETED)
-            i = next(_ for _, future in enumerate(futures) if future.done())
-            task = ready.pop(i)
-            future = futures.pop(i)
-
-            output[task.id] = [future.result(), len(task.children)]
-
-            for child in task.children:
-                waiting[child.id] -= 1
-                if waiting[child.id] == 0:
-                    inputs = []
-                    for parent in child.parents:
-                        inputs.append(output[parent.id][0])
-                        output[parent.id][1] -= 1
-                        if output[parent.id][1] == 0:
-                            del output[parent.id]
-
-                    ready.append(child)
-                    futures.append(self.thread_pool.submit(child.run, *inputs))
-                    del waiting[child.id]
-
-        return tuple(output[return_task.id][0] for return_task in graph.returns)
+        if thread_num <= 0:
+            raise ValueError("thread_num must be positive")
+        self.pool = ThreadPoolExecutor(max_workers=thread_num)
 
 
-class ProcessExecutor(Executor):
-
+class ProcessExecutor(_PoolExecutor):
     def __init__(self, process_num: int):
-        self.process_pool = ProcessPoolExecutor(max_workers=process_num)
-
-    def __enter__(self) -> Executor:
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        self.process_pool.__exit__(exc_type, exc_val, exc_tb)
-        return exc_type is None
-
-    def run(self, graph: Graph, inputs_tuple: Tuple[List, ...], inputs_map: Dict[str, List]) -> Tuple[Any, ...]:
-        ready = [root for root in graph.roots]
-        futures = []
-        for root in graph.roots:
-            if isinstance(root, InputTask):
-                i = next(i for i, input_task in enumerate(graph.args_inputs) if root.id == input_task.id)
-                inputs = inputs_tuple[i]
-            elif isinstance(root, NamedInputTask):
-                inputs = inputs_map[root.name]
-            else:
-                inputs = []
-            futures.append(self.process_pool.submit(root.run, *inputs))
-        waiting = {task.id: len(task.parents) for task in graph if task not in graph.roots}
-        output = {}
-        while len(ready) != 0:
-            wait(futures, return_when=FIRST_COMPLETED)
-            i = next(_ for _, future in enumerate(futures) if future.done())
-            task = ready.pop(i)
-            future = futures.pop(i)
-
-            output[task.id] = [future.result(), len(task.children)]
-
-            for child in task.children:
-                waiting[child.id] -= 1
-                if waiting[child.id] == 0:
-                    inputs = []
-                    for parent in child.parents:
-                        inputs.append(output[parent.id][0])
-                        output[parent.id][1] -= 1
-                        if output[parent.id][1] == 0:
-                            del output[parent.id]
-
-                    ready.append(child)
-                    futures.append(self.process_pool.submit(child.run, *inputs))
-                    del waiting[child.id]
-
-        return tuple(output[return_task.id][0] for return_task in graph.returns)
-
-
-class HyperExecutor(Executor):
-
-    def __init__(self, thread_num: int, process_num: int):
-        self.thread_pool = ThreadPoolExecutor(max_workers=thread_num)
-        self.process_pool = ProcessPoolExecutor(max_workers=process_num)
-
-    def __enter__(self) -> Executor:
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        self.thread_pool.__exit__(exc_type, exc_val, exc_tb)
-        self.process_pool.__exit__(exc_type, exc_val, exc_tb)
-        return exc_type is None
-
-    def run(self, graph: Graph, inputs_tuple: Tuple[List, ...], inputs_map: Dict[str, List]) -> Tuple[Any, ...]:
-        ready = [root for root in graph.roots]
-        futures = []
-        for root in graph.roots:
-            if isinstance(root, InputTask):
-                i = next(i for i, input_task in enumerate(graph.args_inputs) if root.id == input_task.id)
-                inputs = inputs_tuple[i]
-            elif isinstance(root, NamedInputTask):
-                inputs = inputs_map[root.name]
-            else:
-                inputs = []
-            if root.execute == "thread":
-                futures.append(self.thread_pool.submit(root.run, *inputs))
-            else:
-                futures.append(self.process_pool.submit(root.run, *inputs))
-        waiting = {task.id: len(task.parents) for task in graph if task not in graph.roots}
-        output = {}
-        while len(ready) != 0:
-            wait(futures, return_when=FIRST_COMPLETED)
-            i = next(_ for _, future in enumerate(futures) if future.done())
-            task = ready.pop(i)
-            future = futures.pop(i)
-
-            output[task.id] = [future.result(), len(task.children)]
-
-            for child in task.children:
-                waiting[child.id] -= 1
-                if waiting[child.id] == 0:
-                    inputs = []
-                    for parent in child.parents:
-                        inputs.append(output[parent.id][0])
-                        output[parent.id][1] -= 1
-                        if output[parent.id][1] == 0:
-                            del output[parent.id]
-
-                    ready.append(child)
-                    if child.execute == "thread":
-                        futures.append(self.thread_pool.submit(child.run, *inputs))
-                    else:
-                        futures.append(self.process_pool.submit(child.run, *inputs))
-                    del waiting[child.id]
-
-        return tuple(output[return_task.id][0] for return_task in graph.returns)
+        if process_num <= 0:
+            raise ValueError("process_num must be positive")
+        methods = multiprocessing.get_all_start_methods()
+        context = multiprocessing.get_context("fork") if "fork" in methods else None
+        self.pool = ProcessPoolExecutor(max_workers=process_num, mp_context=context)
