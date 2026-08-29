@@ -3,17 +3,41 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "task-flow"
+name = "taskflow-tr"
 version = "0.1.0"
-description = "Compile a small subset of Python functions into a DAG and execute it."
+description = "Compile Python functions into GraphIR DAGs and execute them inline, with threads, or with processes."
 readme = "README.md"
+license = {file = "LICENSE"}
 requires-python = ">=3.8"
-authors = [{name = "gaoxinge"}]
+authors = [{name = "gaoxinge", email = "gaoxx5@gmail.com"}]
+maintainers = [{name = "gaoxinge", email = "gaoxx5@gmail.com"}]
+keywords = ["dag", "graph-ir", "workflow", "concurrency", "threading", "multiprocessing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Distributed Computing",
+]
 dependencies = []
 
 [project.optional-dependencies]
-graphviz = ["graphviz>=0.20"]
 examples = ["flask>=2", "grpcio>=1.48", "grpcio-tools>=1.48", "protobuf>=3.20", "requests>=2"]
+
+[project.urls]
+Homepage = "https://github.com/gaoxinge/task_flow"
+Repository = "https://github.com/gaoxinge/task_flow"
+Issues = "https://github.com/gaoxinge/task_flow/issues"
+Documentation = "https://github.com/gaoxinge/task_flow#readme"
 
 [dependency-groups]
 dev = ["pytest>=7,<8.4", "ruff>=0.6"]

@@ -1,10 +1,22 @@
-# task-flow
+# taskflow-tr
 
-task-flow 将一小部分 Python 函数编译成静态 `GraphIR`，可打印计算图，也可使用串行、线程池或进程池执行。
+taskflow-tr 将一小部分 Python 函数编译成静态 `GraphIR`，可打印计算图，也可使用串行、线程池或进程池执行。PyPI 发行名是 `taskflow-tr`，Python 导入名是 `task_flow`。
 
 ## 环境与安装
 
-项目最低支持 Python 3.8，并使用 [uv](https://docs.astral.sh/uv/) 管理环境：
+项目最低支持 Python 3.8。通过 PyPI 安装核心包：
+
+```bash
+pip install taskflow-tr
+```
+
+如需运行 README 中的 HTTP 和 gRPC 集成示例：
+
+```bash
+pip install "taskflow-tr[examples]"
+```
+
+项目开发环境使用 [uv](https://docs.astral.sh/uv/) 管理：
 
 ```bash
 uv sync --all-groups
@@ -155,7 +167,7 @@ print(printable_graph)  # 输出 DOT 源码
 
 ### 集成 HTTP 服务
 
-HTTP 和 gRPC 只是 `TransformedFunction` 的调用入口，调度逻辑仍由 task-flow 管理。安装示例依赖：
+HTTP 和 gRPC 只是 `TransformedFunction` 的调用入口，调度逻辑仍由 taskflow-tr 管理。安装示例依赖：
 
 ```bash
 uv sync --extra examples

@@ -384,16 +384,13 @@ class Executor(ABC):
         ...
 
     @abstractmethod
-    def _submit(self, function, *args):
-        ...
+    def _submit(self, function, *args): ...
 
     @abstractmethod
-    def _wait_any(self, handles):
-        ...
+    def _wait_any(self, handles): ...
 
     @abstractmethod
-    def _result(self, handle):
-        ...
+    def _result(self, handle): ...
 ```
 
 具体实现：
@@ -449,8 +446,7 @@ class Executor(ABC):
         function: CompiledFunction,
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
-    ) -> Any:
-        ...
+    ) -> Any: ...
 ```
 
 Executor 不重新解析源码，而是直接执行 `function.graph_ir`。这样 `compile()` 的产物既可打印，也可交给不同 Executor 重复执行。
@@ -537,8 +533,7 @@ def add(a, b):
 
 ```python
 @compile(format="mermaid")
-def workflow(a, b):
-    ...
+def workflow(a, b): ...
 ```
 
 允许的格式为：
@@ -607,11 +602,9 @@ from task_flow import compile
 
 ```python
 class CompiledFunction:
-    def __str__(self) -> str:
-        ...
+    def __str__(self) -> str: ...
 
-    def __format__(self, format_spec: str) -> str:
-        ...
+    def __format__(self, format_spec: str) -> str: ...
 ```
 
 无括号的 `@compile` 默认打印 JSON：
@@ -630,8 +623,7 @@ print(format(add, "json"))
 
 ```python
 @compile(format="mermaid")
-def workflow(a, b):
-    ...
+def workflow(a, b): ...
 
 
 print(workflow)  # Mermaid
@@ -746,13 +738,11 @@ assert result == 3
 
 ```python
 @transform(executor="thread", workers=4)
-def workflow(a, b):
-    ...
+def workflow(a, b): ...
 
 
 @transform(executor="process", workers=4)
-def process_workflow(a, b):
-    ...
+def process_workflow(a, b): ...
 ```
 
 空括号非法：
